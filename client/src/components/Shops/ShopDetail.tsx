@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shop, Review } from '../../types';
-import { getReviews, getDirections } from '../../api';
+import { getReviews } from '../../api';
 import { useAuth } from '../../hooks/useAuth';
 import ReviewForm from '../Reviews/ReviewForm';
 import ReviewList from '../Reviews/ReviewList';
+import AddressAutocomplete from '../ui/AddressAutocomplete';
+
 
 interface ShopDetailProps {
   shop: Shop;
@@ -147,12 +149,12 @@ export default function ShopDetail({ shop, onClose, onDirections, userPosition }
         )}
 
         {directionMode === 'manual' && (
-          <input
+          <AddressAutocomplete
             id="directions-start-address"
-            className="input mb-2 text-sm"
-            placeholder="Enter your starting address…"
             value={startAddress}
-            onChange={e => setStartAddress(e.target.value)}
+            onChange={setStartAddress}
+            placeholder="Enter your starting address…"
+            compact
           />
         )}
 

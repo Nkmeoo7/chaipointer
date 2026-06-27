@@ -165,3 +165,11 @@ body::before {
   50% { box-shadow: 0 0 40px rgba(226,165,58,0.4); }
 }
 .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* ─── Address Autocomplete ──────────────────────────────────────────── */
+/* The dropdown must sit above modal backdrops (fixed z-50) */
+[role="listbox"] {
+  position: absolute;
+  z-index: 9999;
+}
+

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shop } from '../../types';
 import { createShop } from '../../api';
+import AddressAutocomplete from '../ui/AddressAutocomplete';
+
 
 interface AddShopModalProps {
   onClose: () => void;
@@ -77,12 +79,11 @@ export default function AddShopModal({ onClose, onAdded }: AddShopModalProps) {
               <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                 Address * <span className="text-chai-500">(we'll geocode this automatically)</span>
               </label>
-              <input
+              <AddressAutocomplete
                 id="shop-address-input"
-                className="input"
-                placeholder="e.g. Connaught Place, New Delhi, India"
                 value={form.address}
-                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                onChange={val => setForm(f => ({ ...f, address: val }))}
+                placeholder="e.g. Connaught Place, New Delhi, India"
               />
             </div>
 
