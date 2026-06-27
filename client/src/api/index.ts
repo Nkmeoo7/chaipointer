@@ -60,24 +60,27 @@ export const redeemPoints = () => api.post('/points/redeem');
 // OSM Overpass
 import { Shop } from '../types';
 
-export const fetchOSMShops = async (lat: number, lng: number, radius = 5000): Promise<Shop[]> => {
-  const query = `
-    [out:json][timeout:15];
-    (
-      node["amenity"="cafe"](around:${radius},${lat},${lng});
-      node["cuisine"~"coffee_shop|tea"](around:${radius},${lat},${lng});
-      node["name"~"(?i)(chai|tea)"](around:${radius},${lat},${lng});
-    );
-    out center limit 30;
-  `;
+export const fetchOSMShops = async (lat: number, lng: number, radius = 3000): Promise<Shop[]> => {
+  const query = `[out:json][timeout:10];
+(
+  node["amenity"="cafe"](around:${radius},${lat},${lng});
+  node["vending"="coffee"](around:${radius},${lat},${lng});
+);
+out center;`;
 
   try {
-    const res = await axios.post('https://overpass-api.de/api/interpreter', query, {
-      headers: { 'Content-Type': 'text/plain' },
-    });
+    const res = await axios.post(
+      'https://overpass-api.de/api/interpreter',
+      `data=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return res.data.elements.map((el: any) => ({
+    return (res.data.elements || []).slice(0, 30).map((el: any) => ({
       _id: `osm-${el.id}`,
       name: el.tags?.name || 'Unnamed Cafe/Tea Stall',
       address: [
