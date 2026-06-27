@@ -2,51 +2,80 @@ import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Shop } from '../types';
 import { getShops, getDirections } from '../api';
+import { useGeolocation } from '../hooks/useGeolocation';
 import MapView from '../components/Map/MapView';
 import ShopDetail from '../components/Shops/ShopDetail';
 import AddShopModal from '../components/Shops/AddShopModal';
 import Navbar from '../components/Navbar';
 
 export default function Home() {
+  const { position: userPosition, error: geoError } = useGeolocation();
   const [shops, setShops] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [showAddShop, setShowAddShop] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [minRating, setMinRating] = useState(0);
-  // Route is stored as [lat, lng][] for Leaflet's Polyline
+  const [nearbyMode, setNearbyMode] = useState(false);
   const [routeCoords, setRouteCoords] = useState<[number, number][] | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
 
-  const fetchShops = useCallback(async (name?: string, rating?: number) => {
+  // ── Shop fetching ────────────────────────────────────────────────────────
+  const fetchShops = useCallback(async (opts?: {
+    name?: string;
+    rating?: number;
+    nearby?: boolean;
+    position?: GeolocationCoordinates | null;
+  }) => {
+    const { name, rating, nearby, position } = opts ?? {};
     try {
-      const res = await getShops({
-        ...(name ? { name } : {}),
-        ...(rating && rating > 0 ? { minRating: rating } : {}),
-      });
+      const params: Record<string, string | number> = {};
+      if (name) params.name = name;
+      if (rating && rating > 0) params.minRating = rating;
+      if (nearby && position) {
+        // Backend will sort by distance using $near
+        params.lat = position.latitude;
+        params.lng = position.longitude;
+        params.radius = 5000; // 5 km
+      }
+      const res = await getShops(params);
       setShops(res.data.shops);
     } catch {
-      // silent — shops just won't update
+      // silent
     }
   }, []);
 
+  // Initial load: all shops
   useEffect(() => { fetchShops(); }, [fetchShops]);
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
-    fetchShops(q, minRating);
+    setNearbyMode(false);
+    fetchShops({ name: q, rating: minRating });
   }, [fetchShops, minRating]);
 
   const handleMinRating = useCallback((r: number) => {
     setMinRating(r);
-    fetchShops(searchQuery, r);
-  }, [fetchShops, searchQuery]);
+    fetchShops({ name: searchQuery, rating: r, nearby: nearbyMode, position: userPosition });
+  }, [fetchShops, searchQuery, nearbyMode, userPosition]);
+
+  const handleNearMe = useCallback(() => {
+    if (!userPosition) return;
+    setNearbyMode(true);
+    setSearchQuery('');
+    fetchShops({ rating: minRating, nearby: true, position: userPosition });
+  }, [userPosition, minRating, fetchShops]);
+
+  const handleShowAll = useCallback(() => {
+    setNearbyMode(false);
+    fetchShops({ name: searchQuery, rating: minRating });
+  }, [fetchShops, searchQuery, minRating]);
 
   const handleShopAdded = (shop: Shop) => {
     setShops(prev => [shop, ...prev]);
   };
 
-  // Called from ShopDetail when the user clicks "Get Directions"
+  // ── Directions ───────────────────────────────────────────────────────────
   const handleDirections = useCallback(async (
     shopId: string,
     start: { lng?: number; lat?: number; address?: string }
@@ -56,8 +85,7 @@ export default function Home() {
     setRouteCoords(null);
     try {
       const res = await getDirections(shopId, start);
-      // OSRM returns GeoJSON geometry: coordinates are [lng, lat]
-      // Leaflet's Polyline needs [lat, lng]
+      // OSRM GeoJSON: [lng, lat] → Leaflet Polyline: [lat, lng]
       const geoCoords: [number, number][] = res.data.geometry.coordinates.map(
         ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
       );
@@ -70,30 +98,29 @@ export default function Home() {
     }
   }, []);
 
-  // Clear route when shop is deselected
   const handleShopClose = () => {
     setSelectedShop(null);
     setRouteCoords(null);
     setRouteError(null);
   };
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-zinc-950">
 
-      {/* ── Base layer: full-screen map ──────────────────────────────
-          Positioned absolutely at z-0 so Leaflet's internal pane
-          z-indices (200–1000) don't escape this stacking context.     */}
+      {/* Base: full-screen map at z-0 (Leaflet's internal z-indices stay contained) */}
       <div className="absolute inset-0 z-0">
         <MapView
           shops={shops}
           onShopClick={setSelectedShop}
           selectedShop={selectedShop}
           routeCoords={routeCoords}
+          userPosition={userPosition}
           onDrawRoute={() => {}}
         />
       </div>
 
-      {/* ── UI layers (must be z-[1001]+ to clear Leaflet controls) ── */}
+      {/* UI layers at z-[1001]+ to clear Leaflet's control pane (1000) */}
 
       {/* Navbar */}
       <div className="absolute inset-x-0 top-0 z-[1001]">
@@ -101,8 +128,19 @@ export default function Home() {
           onAddShop={() => setShowAddShop(true)}
           onSearch={handleSearch}
           onMinRatingChange={handleMinRating}
+          onNearMe={handleNearMe}
+          onShowAll={handleShowAll}
+          nearbyMode={nearbyMode}
+          hasLocation={!!userPosition}
         />
       </div>
+
+      {/* Geolocation error pill */}
+      {geoError && (
+        <div className="absolute top-16 left-4 glass-card px-3 py-1.5 text-xs text-amber-400 max-w-xs z-[1001]">
+          📍 {geoError}
+        </div>
+      )}
 
       {/* Route loading / error toast */}
       {routeLoading && (
@@ -118,9 +156,20 @@ export default function Home() {
         </div>
       )}
 
-      {/* Shop count badge */}
-      <div className="absolute bottom-4 left-4 glass-card px-3 py-1.5 text-xs text-zinc-400 z-[1001]">
-        {shops.length} shop{shops.length !== 1 ? 's' : ''} on map
+      {/* Shop count / nearby badge */}
+      <div className="absolute bottom-4 left-4 flex items-center gap-2 z-[1001]">
+        <div className="glass-card px-3 py-1.5 text-xs text-zinc-400">
+          {shops.length} shop{shops.length !== 1 ? 's' : ''}
+          {nearbyMode ? ' nearby' : ' on map'}
+        </div>
+        {nearbyMode && (
+          <button
+            onClick={handleShowAll}
+            className="glass-card px-3 py-1.5 text-xs text-chai-400 hover:text-chai-300 transition-colors"
+          >
+            Show all
+          </button>
+        )}
       </div>
 
       {/* Shop detail panel */}
@@ -132,13 +181,14 @@ export default function Home() {
                 shop={selectedShop}
                 onClose={handleShopClose}
                 onDirections={handleDirections}
+                userPosition={userPosition}
               />
             </div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Add shop modal — fixed overlay, highest layer */}
+      {/* Add shop modal */}
       <AnimatePresence>
         {showAddShop && (
           <AddShopModal

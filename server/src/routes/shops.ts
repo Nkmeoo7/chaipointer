@@ -5,28 +5,42 @@ import { protect, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/shops — list all shops, with optional search/filter
+// GET /api/shops — list all shops, with optional search/filter/proximity
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, minRating } = req.query;
+    const { name, minRating, lat, lng, radius } = req.query;
 
-    const query: Record<string, unknown> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const query: Record<string, any> = {};
+
     if (name) {
       query.name = { $regex: name as string, $options: 'i' };
     }
     if (minRating) {
       const rating = parseFloat(minRating as string);
-      if (!isNaN(rating)) {
-        query.averageRating = { $gte: rating };
-      }
+      if (!isNaN(rating)) query.averageRating = { $gte: rating };
     }
 
-    const shops = await Shop.find(query).select('-__v').sort({ createdAt: -1 });
+    // Proximity search — if lat & lng provided, use $near with 2dsphere index
+    // radius defaults to 5 km (5000 m)
+    if (lat && lng) {
+      const radiusM = radius ? parseFloat(radius as string) : 5000;
+      query.location = {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [parseFloat(lng as string), parseFloat(lat as string)] },
+          $maxDistance: radiusM,
+        },
+      };
+    }
+
+    // $near already sorts by distance; without it sort by newest
+    const shops = await Shop.find(query).select('-__v').sort(lat && lng ? {} : { createdAt: -1 });
     res.json({ shops });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch shops.' });
   }
 });
+
 
 // POST /api/shops — create a new shop (geocodes address server-side)
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {

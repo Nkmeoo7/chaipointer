@@ -7,9 +7,13 @@ interface NavbarProps {
   onAddShop: () => void;
   onSearch: (query: string) => void;
   onMinRatingChange: (r: number) => void;
+  onNearMe: () => void;
+  onShowAll: () => void;
+  nearbyMode: boolean;
+  hasLocation: boolean;
 }
 
-export default function Navbar({ onAddShop, onSearch, onMinRatingChange }: NavbarProps) {
+export default function Navbar({ onAddShop, onSearch, onMinRatingChange, onNearMe, onShowAll, nearbyMode, hasLocation }: NavbarProps) {
   const { user, logout } = useAuth();
   const [showRedeem, setShowRedeem] = useState(false);
   const [minRating, setMinRating] = useState(0);
@@ -41,6 +45,31 @@ export default function Navbar({ onAddShop, onSearch, onMinRatingChange }: Navba
           placeholder="Search chai shops…"
           onChange={e => onSearch(e.target.value)}
         />
+
+        {/* Near Me / Show All */}
+        {nearbyMode ? (
+          <button
+            onClick={onShowAll}
+            className="text-xs px-3 py-1.5 rounded-full bg-chai-600/20 border border-chai-500/30 text-chai-300 flex-shrink-0 hover:bg-chai-600/30 transition-all"
+          >
+            ✕ Near Me
+          </button>
+        ) : (
+          <button
+            id="near-me-btn"
+            onClick={onNearMe}
+            disabled={!hasLocation}
+            title={hasLocation ? 'Show chai shops within 5 km' : 'Waiting for GPS…'}
+            className={`text-xs px-3 py-1.5 rounded-full flex-shrink-0 transition-all flex items-center gap-1.5 ${
+              hasLocation
+                ? 'bg-zinc-800/60 border border-zinc-700/50 text-zinc-300 hover:border-chai-500/40 hover:text-chai-300'
+                : 'opacity-40 cursor-not-allowed bg-zinc-800/40 border border-zinc-700/30 text-zinc-500'
+            }`}
+          >
+            <span className={hasLocation ? 'animate-pulse' : ''}>📍</span>
+            Near Me
+          </button>
+        )}
 
         {/* Min rating filter */}
         <div className="flex items-center gap-1 flex-shrink-0">

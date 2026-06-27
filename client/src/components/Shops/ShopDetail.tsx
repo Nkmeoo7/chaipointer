@@ -10,6 +10,7 @@ interface ShopDetailProps {
   shop: Shop;
   onClose: () => void;
   onDirections: (shopId: string, start: { lng?: number; lat?: number; address?: string }) => void;
+  userPosition: GeolocationCoordinates | null;
 }
 
 function StarDisplay({ rating }: { rating: number }) {
@@ -23,7 +24,7 @@ function StarDisplay({ rating }: { rating: number }) {
   );
 }
 
-export default function ShopDetail({ shop, onClose, onDirections }: ShopDetailProps) {
+export default function ShopDetail({ shop, onClose, onDirections, userPosition }: ShopDetailProps) {
   const { user, updatePoints } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
@@ -51,16 +52,21 @@ export default function ShopDetail({ shop, onClose, onDirections }: ShopDetailPr
     setGettingDirections(true);
     try {
       if (directionMode === 'geo') {
-        const pos = await new Promise<GeolocationPosition>((res, rej) =>
-          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
-        );
-        onDirections(shop._id, { lng: pos.coords.longitude, lat: pos.coords.latitude });
+        if (userPosition) {
+          // Use already-watched live position — no extra permission prompt
+          onDirections(shop._id, { lng: userPosition.longitude, lat: userPosition.latitude });
+        } else {
+          // GPS not available from hook — fall back to one-shot browser request
+          const pos = await new Promise<GeolocationPosition>((res, rej) =>
+            navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
+          );
+          onDirections(shop._id, { lng: pos.coords.longitude, lat: pos.coords.latitude });
+        }
       } else {
         if (!startAddress.trim()) return;
         onDirections(shop._id, { address: startAddress });
       }
     } catch {
-      // geolocation failed: switch to manual
       setDirectionMode('manual');
     } finally {
       setGettingDirections(false);
@@ -125,6 +131,20 @@ export default function ShopDetail({ shop, onClose, onDirections }: ShopDetailPr
             className={`text-xs px-3 py-1 rounded-full transition-all ${directionMode === 'manual' ? 'bg-chai-600 text-white' : 'btn-ghost'}`}
           >✏️ Enter Address</button>
         </div>
+
+        {/* Live GPS indicator */}
+        {directionMode === 'geo' && userPosition && (
+          <div className="flex items-center gap-1.5 mb-2 text-xs text-emerald-400">
+            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            Using your live location
+          </div>
+        )}
+        {directionMode === 'geo' && !userPosition && (
+          <div className="flex items-center gap-1.5 mb-2 text-xs text-amber-400">
+            <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+            Waiting for GPS… (or switch to address)
+          </div>
+        )}
 
         {directionMode === 'manual' && (
           <input

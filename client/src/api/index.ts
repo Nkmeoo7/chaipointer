@@ -15,8 +15,14 @@ export const login = (email: string, password: string) =>
 export const logout = () => api.post('/auth/logout');
 
 // Shops
-export const getShops = (params?: { name?: string; minRating?: number }) =>
-  api.get('/shops', { params });
+export const getShops = (params?: {
+  name?: string;
+  minRating?: number;
+  lat?: number;
+  lng?: number;
+  radius?: number;
+}) => api.get('/shops', { params });
+
 
 export const getShop = (id: string) => api.get(`/shops/${id}`);
 
