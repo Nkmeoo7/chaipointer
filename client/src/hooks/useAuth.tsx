@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
-import { login as apiLogin, logout as apiLogout, signup as apiSignup } from '../api';
+import { login as apiLogin, logout as apiLogout, signup as apiSignup, default as api } from '../api';
+
 
 interface AuthContextType {
   user: User | null;
@@ -19,14 +20,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restore session from cookie on mount
   useEffect(() => {
-    import('../api').then(({ default: api }) => {
-      api.get('/auth/me').then(res => {
-        setUser(res.data.user);
-      }).catch(() => {
-        setUser(null);
-      }).finally(() => setLoading(false));
-    });
+    api.get('/auth/me').then(res => {
+      setUser(res.data.user);
+    }).catch(() => {
+      setUser(null);
+    }).finally(() => setLoading(false));
   }, []);
+
 
   const login = async (email: string, password: string) => {
     const res = await apiLogin(email, password);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Shop } from '../types';
 import { getShops, getDirections } from '../api';
@@ -13,7 +13,10 @@ export default function Home() {
   const [showAddShop, setShowAddShop] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [minRating, setMinRating] = useState(0);
-  const mapDrawRef = useRef<((shopId: string, start: { lng?: number; lat?: number; address?: string }) => void) | null>(null);
+  // Route is stored as [lat, lng][] for Leaflet's Polyline
+  const [routeCoords, setRouteCoords] = useState<[number, number][] | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   const fetchShops = useCallback(async (name?: string, rating?: number) => {
     try {
@@ -23,7 +26,7 @@ export default function Home() {
       });
       setShops(res.data.shops);
     } catch {
-      // silent
+      // silent — shops just won't update
     }
   }, []);
 
@@ -43,14 +46,36 @@ export default function Home() {
     setShops(prev => [shop, ...prev]);
   };
 
+  // Called from ShopDetail when the user clicks "Get Directions"
   const handleDirections = useCallback(async (
     shopId: string,
     start: { lng?: number; lat?: number; address?: string }
   ) => {
-    if (mapDrawRef.current) {
-      mapDrawRef.current(shopId, start);
+    setRouteLoading(true);
+    setRouteError(null);
+    setRouteCoords(null);
+    try {
+      const res = await getDirections(shopId, start);
+      // OSRM returns GeoJSON geometry: coordinates are [lng, lat]
+      // Leaflet's Polyline needs [lat, lng]
+      const geoCoords: [number, number][] = res.data.geometry.coordinates.map(
+        ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
+      );
+      setRouteCoords(geoCoords);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setRouteError(error.response?.data?.message || 'Could not get directions.');
+    } finally {
+      setRouteLoading(false);
     }
   }, []);
+
+  // Clear route when shop is deselected
+  const handleShopClose = () => {
+    setSelectedShop(null);
+    setRouteCoords(null);
+    setRouteError(null);
+  };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-zinc-950">
@@ -60,16 +85,31 @@ export default function Home() {
         onMinRatingChange={handleMinRating}
       />
 
-      {/* Full-screen map */}
+      {/* Full-screen Leaflet map */}
       <MapView
         shops={shops}
         onShopClick={setSelectedShop}
         selectedShop={selectedShop}
-        onDrawRoute={(fn) => { mapDrawRef.current = fn; }}
+        routeCoords={routeCoords}
+        onDrawRoute={() => {}} // no-op in Leaflet version (state-driven)
       />
 
+      {/* Route loading / error toast */}
+      {routeLoading && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 glass-card px-4 py-2 text-sm text-chai-300 flex items-center gap-2 z-30">
+          <div className="w-4 h-4 border-2 border-chai-400 border-t-transparent rounded-full animate-spin" />
+          Getting directions…
+        </div>
+      )}
+      {routeError && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 glass-card px-4 py-2 text-sm text-red-400 max-w-xs text-center z-30">
+          {routeError}
+          <button onClick={() => setRouteError(null)} className="ml-2 text-zinc-500 hover:text-white">×</button>
+        </div>
+      )}
+
       {/* Shop count badge */}
-      <div className="absolute bottom-4 left-4 glass-card px-3 py-1.5 text-xs text-zinc-400 z-10">
+      <div className="absolute bottom-4 left-4 glass-card px-3 py-1.5 text-xs text-zinc-400 z-20">
         {shops.length} shop{shops.length !== 1 ? 's' : ''} on map
       </div>
 
@@ -80,7 +120,7 @@ export default function Home() {
             <div className="pointer-events-auto h-full">
               <ShopDetail
                 shop={selectedShop}
-                onClose={() => setSelectedShop(null)}
+                onClose={handleShopClose}
                 onDirections={handleDirections}
               />
             </div>

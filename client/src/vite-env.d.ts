@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 
+// No environment variables needed for the free-maps branch.
+// All map/geocoding/routing services are free with no API keys.
 interface ImportMetaEnv {
-  readonly VITE_MAPBOX_PUBLIC_TOKEN: string;
+  readonly MODE: string;
 }
 
 interface ImportMeta {

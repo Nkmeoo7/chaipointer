@@ -105,19 +105,40 @@ body::before {
 .star { cursor: pointer; transition: transform 0.1s; }
 .star:hover { transform: scale(1.25); }
 
-/* ─── Mapbox overrides ─────────────────────────────────────────────── */
-.mapboxgl-ctrl-attrib { display: none !important; }
-.mapboxgl-ctrl-logo { display: none !important; }
-.mapboxgl-popup-content {
+/* ─── Leaflet overrides ────────────────────────────────────────────────── */
+.leaflet-container {
+  font-family: var(--font-sans) !important;
+  background: #0c0a09 !important;
+}
+.leaflet-control-attribution {
+  background: rgba(12,10,9,0.7) !important;
+  color: #52525b !important;
+  font-size: 10px !important;
+}
+.leaflet-control-attribution a { color: #78716c !important; }
+
+.leaflet-popup-content-wrapper {
   background: rgba(28,25,23,0.95) !important;
   border: 1px solid rgba(255,255,255,0.1) !important;
   border-radius: 0.75rem !important;
-  padding: 1rem !important;
-  color: #e7e5e4 !important;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6) !important;
   backdrop-filter: blur(20px) !important;
+  color: #e7e5e4 !important;
+  padding: 0 !important;
 }
-.mapboxgl-popup-tip { display: none !important; }
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  color: #e7e5e4 !important;
+}
+.leaflet-popup-tip-container { display: none !important; }
+.leaflet-popup-close-button {
+  color: #78716c !important;
+  font-size: 18px !important;
+  top: 6px !important;
+  right: 8px !important;
+}
+.leaflet-popup-close-button:hover { color: #e7e5e4 !important; }
+
 
 /* ─── Scrollbar ────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
