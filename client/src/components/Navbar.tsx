@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import RedeemModal from './Points/RedeemModal';
+import AddressAutocomplete, { NominatimResult } from './ui/AddressAutocomplete';
 
 interface NavbarProps {
   onAddShop: () => void;
   onSearch: (query: string) => void;
+  onLocationSearch: (lat: number, lng: number, displayName: string) => void;
+  searchLocationName: string;
+  onClearLocationSearch: () => void;
   onMinRatingChange: (r: number) => void;
   onNearMe: () => void;
   onShowAll: () => void;
@@ -13,7 +17,18 @@ interface NavbarProps {
   hasLocation: boolean;
 }
 
-export default function Navbar({ onAddShop, onSearch, onMinRatingChange, onNearMe, onShowAll, nearbyMode, hasLocation }: NavbarProps) {
+export default function Navbar({
+  onAddShop,
+  onSearch,
+  onLocationSearch,
+  searchLocationName,
+  onClearLocationSearch,
+  onMinRatingChange,
+  onNearMe,
+  onShowAll,
+  nearbyMode,
+  hasLocation
+}: NavbarProps) {
   const { user, logout } = useAuth();
   const [showRedeem, setShowRedeem] = useState(false);
   const [minRating, setMinRating] = useState(0);
@@ -21,6 +36,10 @@ export default function Navbar({ onAddShop, onSearch, onMinRatingChange, onNearM
   const handleRating = (r: number) => {
     setMinRating(r);
     onMinRatingChange(r);
+  };
+
+  const handleLocationSelect = (result: NominatimResult) => {
+    onLocationSearch(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
   };
 
   return (
@@ -38,13 +57,27 @@ export default function Navbar({ onAddShop, onSearch, onMinRatingChange, onNearM
           <span className="font-black text-white tracking-tight text-lg">ChaiSpot</span>
         </div>
 
-        {/* Search */}
+        {/* Shop Name Search */}
         <input
           id="search-shops-input"
-          className="input flex-1 max-w-xs text-sm"
-          placeholder="Search chai shops…"
+          className="input flex-1 max-w-[160px] text-sm"
+          placeholder="Shop name…"
           onChange={e => onSearch(e.target.value)}
         />
+
+        {/* Location Search */}
+        <div className="flex-1 max-w-[240px]">
+          <AddressAutocomplete
+            id="search-location-input"
+            value={searchLocationName}
+            onChange={(val) => {
+              if (val === '') onClearLocationSearch();
+            }}
+            onSelect={handleLocationSelect}
+            placeholder="Search location…"
+            compact
+          />
+        </div>
 
         {/* Near Me / Show All */}
         {nearbyMode ? (

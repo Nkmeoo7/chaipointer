@@ -43,6 +43,7 @@ export interface MapViewProps {
   selectedShop: Shop | null;
   routeCoords: [number, number][] | null;
   userPosition: GeolocationCoordinates | null;
+  mapCenter?: { lat: number; lng: number } | null;
   onDrawRoute: (
     fn: (shopId: string, start: { lng?: number; lat?: number; address?: string }) => void
   ) => void;
@@ -53,12 +54,14 @@ function MapController({
   selectedShop,
   routeCoords,
   userPosition,
+  mapCenter,
   hasFlownToUser,
   onFlownToUser,
 }: {
   selectedShop: Shop | null;
   routeCoords: [number, number][] | null;
   userPosition: GeolocationCoordinates | null;
+  mapCenter?: { lat: number; lng: number } | null;
   hasFlownToUser: React.MutableRefObject<boolean>;
   onFlownToUser: () => void;
 }) {
@@ -86,6 +89,12 @@ function MapController({
     map.fitBounds(bounds, { padding: [60, 60], duration: 1 });
   }, [routeCoords, map]);
 
+  // When mapCenter (from custom search) changes, fly there
+  useEffect(() => {
+    if (!mapCenter) return;
+    map.flyTo([mapCenter.lat, mapCenter.lng], 13, { duration: 1.5 });
+  }, [mapCenter, map]);
+
   return null;
 }
 
@@ -95,6 +104,7 @@ export default function MapView({
   selectedShop,
   routeCoords,
   userPosition,
+  mapCenter,
 }: MapViewProps) {
   const initialCenter: [number, number] = [28.6139, 77.209]; // New Delhi fallback
   // Track whether we've already flown to the user once
@@ -118,6 +128,7 @@ export default function MapView({
         selectedShop={selectedShop}
         routeCoords={routeCoords}
         userPosition={userPosition}
+        mapCenter={mapCenter}
         hasFlownToUser={hasFlownToUser}
         onFlownToUser={() => { hasFlownToUser.current = true; }}
       />

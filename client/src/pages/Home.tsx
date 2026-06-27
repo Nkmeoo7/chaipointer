@@ -20,24 +20,34 @@ export default function Home() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
 
+  const [searchLocationName, setSearchLocationName] = useState('');
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+
   // ── Shop fetching ────────────────────────────────────────────────────────
   const fetchShops = useCallback(async (opts?: {
     name?: string;
     rating?: number;
     nearby?: boolean;
     position?: GeolocationCoordinates | null;
+    customLat?: number;
+    customLng?: number;
   }) => {
-    const { name, rating, nearby, position } = opts ?? {};
+    const { name, rating, nearby, position, customLat, customLng } = opts ?? {};
     try {
       const params: Record<string, string | number> = {};
       if (name) params.name = name;
       if (rating && rating > 0) params.minRating = rating;
+      
       if (nearby && position) {
-        // Backend will sort by distance using $near
         params.lat = position.latitude;
         params.lng = position.longitude;
         params.radius = 5000; // 5 km
+      } else if (customLat && customLng) {
+        params.lat = customLat;
+        params.lng = customLng;
+        params.radius = 10000; // 10 km for custom searches
       }
+      
       const res = await getShops(params);
       setShops(res.data.shops);
     } catch {
@@ -50,24 +60,43 @@ export default function Home() {
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
+  }, []);
+
+  const handleLocationSearch = useCallback((lat: number, lng: number, displayName: string) => {
     setNearbyMode(false);
-    fetchShops({ name: q, rating: minRating });
+    setSearchLocationName(displayName);
+    setMapCenter({ lat, lng });
+    fetchShops({ rating: minRating, customLat: lat, customLng: lng });
   }, [fetchShops, minRating]);
+
+  const handleClearLocationSearch = useCallback(() => {
+    setSearchLocationName('');
+    setMapCenter(null);
+    fetchShops({ name: searchQuery, rating: minRating });
+  }, [fetchShops, searchQuery, minRating]);
 
   const handleMinRating = useCallback((r: number) => {
     setMinRating(r);
-    fetchShops({ name: searchQuery, rating: r, nearby: nearbyMode, position: userPosition });
-  }, [fetchShops, searchQuery, nearbyMode, userPosition]);
+    if (mapCenter) {
+      fetchShops({ rating: r, customLat: mapCenter.lat, customLng: mapCenter.lng });
+    } else {
+      fetchShops({ name: searchQuery, rating: r, nearby: nearbyMode, position: userPosition });
+    }
+  }, [fetchShops, searchQuery, nearbyMode, userPosition, mapCenter]);
 
   const handleNearMe = useCallback(() => {
     if (!userPosition) return;
     setNearbyMode(true);
     setSearchQuery('');
+    setSearchLocationName('');
+    setMapCenter(null);
     fetchShops({ rating: minRating, nearby: true, position: userPosition });
   }, [userPosition, minRating, fetchShops]);
 
   const handleShowAll = useCallback(() => {
     setNearbyMode(false);
+    setSearchLocationName('');
+    setMapCenter(null);
     fetchShops({ name: searchQuery, rating: minRating });
   }, [fetchShops, searchQuery, minRating]);
 
@@ -116,6 +145,7 @@ export default function Home() {
           selectedShop={selectedShop}
           routeCoords={routeCoords}
           userPosition={userPosition}
+          mapCenter={mapCenter}
           onDrawRoute={() => {}}
         />
       </div>
@@ -127,6 +157,9 @@ export default function Home() {
         <Navbar
           onAddShop={() => setShowAddShop(true)}
           onSearch={handleSearch}
+          onLocationSearch={handleLocationSearch}
+          searchLocationName={searchLocationName}
+          onClearLocationSearch={handleClearLocationSearch}
           onMinRatingChange={handleMinRating}
           onNearMe={handleNearMe}
           onShowAll={handleShowAll}
