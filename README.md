@@ -1,6 +1,7 @@
-# ☕ ChaiSpot — Chai Shop Discovery & Rewards Platform
+# ☕ ChaiSpot — Chai Shop Discovery & Rewards Platform (OpenStreetMap/Leaflet Edition)
 
 > Discover chai shops near you, get directions, leave reviews, and earn points you can redeem for coupon codes.
+> **This branch (`free-maps`) is configured to run fully local and free, with NO API keys or Mapbox tokens required.**
 
 **Live URL:** `[ADD AFTER DEPLOYMENT]`
 
@@ -11,14 +12,15 @@
 ### Prerequisites
 - Node.js 18+
 - MongoDB Atlas account (free tier) or local MongoDB
-- Mapbox account (free tier) — you need **two tokens**:
-  - A **secret token** (`sk.eyJ1...`) for server-side Geocoding + Directions API
-  - A **public token** (`pk.eyJ1...`) for Mapbox GL JS on the client
+- **No Mapbox API keys needed!** (Uses Leaflet + OpenStreetMap + Nominatim + OSRM)
 
 ### 1. Clone & install
 ```bash
 git clone <repo-url>
 cd chaipointer
+
+# Checkout the free-maps branch
+git checkout free-maps
 
 # Install server deps
 cd server && npm install
@@ -32,20 +34,15 @@ cd ../client && npm install
 **Server (`server/.env`):**
 ```bash
 cp server/.env.example server/.env
-# Fill in your values:
+# Fill in your values (no Mapbox token needed):
 PORT=5000
 MONGODB_URI=mongodb+srv://...
 JWT_SECRET=some_long_random_string
-MAPBOX_SECRET_TOKEN=sk.eyJ1...
 CLIENT_URL=http://localhost:5173
 ```
 
 **Client (`client/.env`):**
-```bash
-cp client/.env.example client/.env
-# Fill in:
-VITE_MAPBOX_PUBLIC_TOKEN=pk.eyJ1...
-```
+No `.env` file or public tokens are required on the client side for maps!
 
 ### 3. Run locally
 
@@ -65,6 +62,16 @@ Open http://localhost:5173 — done.
 cd server && npm test
 ```
 All 9 unit tests for the points/redemption logic should pass.
+
+---
+
+## Free & Keyless Map Architecture
+
+This branch replaces all Mapbox integrations with open-source and keyless alternatives:
+
+- **Map rendering:** [Leaflet](https://leafletjs.com/) & [React Leaflet](https://react-leaflet.js.org/) using standard **OpenStreetMap** tile layers. A custom dark CSS filter is applied to the tiles to maintain a premium dark-mode aesthetic.
+- **Geocoding:** [Nominatim](https://nominatim.org/) (OpenStreetMap's geocoding service) used server-side to resolve addresses to longitude/latitude coordinates.
+- **Routing & Directions:** [OSRM](https://project-osrm.org/) (Open Source Routing Machine) public demo server used to calculate driving routes. Coordinates are converted from GeoJSON `[lng, lat]` format to Leaflet's `[lat, lng]` polyline structure.
 
 ---
 
@@ -89,7 +96,7 @@ averageRating Number   denormalized for fast map loads
 reviewCount   Number   denormalized (updated atomically on each review)
 createdBy     ObjectId → User
 ```
-**Why:** `location` is a GeoJSON Point with a `2dsphere` index, enabling future proximity queries (`$near`). `averageRating` and `reviewCount` are denormalized — recalculating averages via aggregation on every map load would be expensive. They're updated atomically whenever a review is submitted or edited.
+**Why:** `location` is a GeoJSON Point with a `2dsphere` index, enabling proximity queries (`$near`). `averageRating` and `reviewCount` are denormalized — recalculating averages via aggregation on every map load would be expensive. They're updated atomically whenever a review is submitted or edited.
 
 ### Review
 ```
@@ -112,25 +119,9 @@ couponCode String?  (only for redeem)
 
 ---
 
-## Architecture Decisions
-
-### Mapbox token security
-The **secret token** is never sent to the client. Geocoding (address → lat/lng) happens server-side on `POST /api/shops`. Directions are also proxied through the backend (`GET /api/shops/:id/directions`). Only the **public token** (suitable for client exposure) goes into `VITE_MAPBOX_PUBLIC_TOKEN`.
-
-### Points are never negative
-Three layers of defense:
-1. Application check before deduction (`if (user.points < threshold)`)
-2. `$inc: -cost` with `runValidators: true` → triggers Mongoose `min:0`
-3. No way to subtract more than the balance (check happens on fresh DB read, not cached token)
-
-### Review duplicate prevention
-1. Application pre-check: returns a 409 with the existing review ID (so the client can offer "Edit" instead of "Create")
-2. DB compound unique index: even if two concurrent requests slip past check 1, only one will succeed
-
----
-
 ## Known Limitations / What I'd Do Differently
 
+- **Nominatim usage policy:** Nominatim has a usage limit of 1 request/second. For a production system, switch to a paid geocoder or self-host Nominatim.
 - **No rate limiting** on review submission (stretch goal) — `express-rate-limit` would take ~10 minutes to add
 - **No leaderboard** — would be a simple aggregation query
 - **Average rating** is updated in a non-atomic multi-document write (review create + shop update). For high-concurrency production use, a MongoDB transaction would be safer
@@ -147,5 +138,3 @@ Three layers of defense:
 | **Render** (free tier) | Node.js/Express server |
 | **Vercel** (free tier) | React client |
 | **MongoDB Atlas** (free M0 tier) | Database |
-
-Set `CLIENT_URL` on Render to your Vercel URL. Set `VITE_MAPBOX_PUBLIC_TOKEN` in Vercel's environment variables.
