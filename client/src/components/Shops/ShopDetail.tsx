@@ -13,6 +13,7 @@ interface ShopDetailProps {
   onClose: () => void;
   onDirections: (shopId: string, start: { lng?: number; lat?: number; address?: string }) => void;
   userPosition: GeolocationCoordinates | null;
+  onClaimShop?: (shop: Shop) => void;
 }
 
 function StarDisplay({ rating }: { rating: number }) {
@@ -26,7 +27,7 @@ function StarDisplay({ rating }: { rating: number }) {
   );
 }
 
-export default function ShopDetail({ shop, onClose, onDirections, userPosition }: ShopDetailProps) {
+export default function ShopDetail({ shop, onClose, onDirections, userPosition, onClaimShop }: ShopDetailProps) {
   const { user, updatePoints } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
@@ -34,6 +35,7 @@ export default function ShopDetail({ shop, onClose, onDirections, userPosition }
   const [startAddress, setStartAddress] = useState('');
   const [gettingDirections, setGettingDirections] = useState(false);
   const [directionMode, setDirectionMode] = useState<'geo' | 'manual'>('geo');
+  const [claiming, setClaiming] = useState(false);
 
   const fetchReviews = useCallback(async () => {
     try {
@@ -171,38 +173,67 @@ export default function ShopDetail({ shop, onClose, onDirections, userPosition }
         </button>
       </div>
 
-      {/* Reviews */}
+      {/* Reviews or Claim */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-white">Reviews</h3>
-          {user && !showReviewForm && (
+        {shop.isExternal ? (
+          <div className="text-center py-6">
+            <div className="text-4xl mb-3">🌍</div>
+            <h3 className="text-sm font-semibold text-white mb-2">Not on ChaiSpot Yet</h3>
+            <p className="text-xs text-zinc-400 mb-4 px-2">
+              This place was discovered via OpenStreetMap. Claim it to add it to our database and start earning points for reviews!
+            </p>
             <button
-              id="write-review-btn"
-              onClick={() => setShowReviewForm(true)}
-              className="text-xs btn-ghost"
+              id="claim-shop-btn"
+              onClick={async () => {
+                if (onClaimShop) {
+                  setClaiming(true);
+                  try {
+                    await onClaimShop(shop);
+                  } finally {
+                    setClaiming(false);
+                  }
+                }
+              }}
+              disabled={claiming}
+              className="btn-primary w-full text-sm"
             >
-              {userReview ? '✏️ Edit Review' : '+ Write Review'}
+              {claiming ? 'Claiming…' : '✚ Claim this Chai Spot'}
             </button>
-          )}
-        </div>
-
-        <AnimatePresence>
-          {showReviewForm && (
-            <ReviewForm
-              shopId={shop._id}
-              existingReview={userReview}
-              onSubmitted={handleReviewSubmitted}
-              onCancel={() => setShowReviewForm(false)}
-            />
-          )}
-        </AnimatePresence>
-
-        {loadingReviews ? (
-          <div className="space-y-2">
-            {[1, 2].map(i => <div key={i} className="h-16 rounded-lg shimmer" />)}
           </div>
         ) : (
-          <ReviewList reviews={reviews} currentUserId={user?.id} />
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-white">Reviews</h3>
+              {user && !showReviewForm && (
+                <button
+                  id="write-review-btn"
+                  onClick={() => setShowReviewForm(true)}
+                  className="text-xs btn-ghost"
+                >
+                  {userReview ? '✏️ Edit Review' : '+ Write Review'}
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showReviewForm && (
+                <ReviewForm
+                  shopId={shop._id}
+                  existingReview={userReview}
+                  onSubmitted={handleReviewSubmitted}
+                  onCancel={() => setShowReviewForm(false)}
+                />
+              )}
+            </AnimatePresence>
+
+            {loadingReviews ? (
+              <div className="space-y-2">
+                {[1, 2].map(i => <div key={i} className="h-16 rounded-lg shimmer" />)}
+              </div>
+            ) : (
+              <ReviewList reviews={reviews} currentUserId={user?.id} />
+            )}
+          </>
         )}
       </div>
     </motion.div>

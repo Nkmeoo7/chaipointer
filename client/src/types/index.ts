@@ -12,6 +12,7 @@ export interface Shop {
   reviewCount: number;
   createdBy: string;
   createdAt: string;
+  isExternal?: boolean;
 }
 
 export interface Review {

@@ -57,4 +57,48 @@ export const updateReview = (id: string, data: { rating?: number; text?: string 
 export const getBalance = () => api.get('/points/balance');
 export const redeemPoints = () => api.post('/points/redeem');
 
+// OSM Overpass
+import { Shop } from '../types';
+
+export const fetchOSMShops = async (lat: number, lng: number, radius = 5000): Promise<Shop[]> => {
+  const query = `
+    [out:json][timeout:15];
+    (
+      node["amenity"="cafe"](around:${radius},${lat},${lng});
+      node["cuisine"~"coffee_shop|tea"](around:${radius},${lat},${lng});
+      node["name"~"(?i)(chai|tea)"](around:${radius},${lat},${lng});
+    );
+    out center limit 30;
+  `;
+
+  try {
+    const res = await axios.post('https://overpass-api.de/api/interpreter', query, {
+      headers: { 'Content-Type': 'text/plain' },
+    });
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return res.data.elements.map((el: any) => ({
+      _id: `osm-${el.id}`,
+      name: el.tags?.name || 'Unnamed Cafe/Tea Stall',
+      address: [
+        el.tags?.['addr:street'],
+        el.tags?.['addr:city'],
+      ].filter(Boolean).join(', ') || 'Unknown Address',
+      description: 'Discovered from OpenStreetMap. Claim it to add details and reviews!',
+      location: {
+        type: 'Point',
+        coordinates: [el.lon, el.lat],
+      },
+      averageRating: 0,
+      reviewCount: 0,
+      createdBy: 'osm',
+      createdAt: new Date().toISOString(),
+      isExternal: true,
+    }));
+  } catch (err) {
+    console.error('Failed to fetch OSM shops', err);
+    return [];
+  }
+};
+
 export default api;

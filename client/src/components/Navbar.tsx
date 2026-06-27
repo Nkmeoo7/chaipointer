@@ -9,6 +9,7 @@ interface NavbarProps {
   onSearch: (query: string) => void;
   onLocationSearch: (lat: number, lng: number, displayName: string) => void;
   searchLocationName: string;
+  onSearchLocationNameChange: (name: string) => void;
   onClearLocationSearch: () => void;
   onMinRatingChange: (r: number) => void;
   onNearMe: () => void;
@@ -22,6 +23,7 @@ export default function Navbar({
   onSearch,
   onLocationSearch,
   searchLocationName,
+  onSearchLocationNameChange,
   onClearLocationSearch,
   onMinRatingChange,
   onNearMe,
@@ -71,6 +73,7 @@ export default function Navbar({
             id="search-location-input"
             value={searchLocationName}
             onChange={(val) => {
+              onSearchLocationNameChange(val);
               if (val === '') onClearLocationSearch();
             }}
             onSelect={handleLocationSelect}

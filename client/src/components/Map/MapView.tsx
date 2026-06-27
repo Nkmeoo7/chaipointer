@@ -37,6 +37,23 @@ const chaiIcon = L.divIcon({
   popupAnchor: [0, -20],
 });
 
+const osmIcon = L.divIcon({
+  html: `<div style="
+    width:30px;height:30px;border-radius:50%;
+    background:linear-gradient(135deg,#52525b,#3f3f46);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 12px rgba(82,82,91,0.5);
+    border:2px solid rgba(255,255,255,0.2);
+    font-size:14px;cursor:pointer;
+    opacity:0.85;
+    transition:transform 0.15s;
+  ">🌍</div>`,
+  className: '',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  popupAnchor: [0, -18],
+});
+
 export interface MapViewProps {
   shops: Shop[];
   onShopClick: (shop: Shop) => void;
@@ -188,17 +205,25 @@ export default function MapView({
           <Marker
             key={shop._id}
             position={[lat, lng]}
-            icon={chaiIcon}
+            icon={shop.isExternal ? osmIcon : chaiIcon}
             eventHandlers={{ click: () => onShopClick(shop) }}
           >
             <Popup className="chai-popup">
               <div className="text-sm font-semibold">{shop.name}</div>
               <div className="text-xs text-zinc-400 mt-0.5">{shop.address}</div>
-              <div className="text-xs mt-1">
-                {'★'.repeat(Math.round(shop.averageRating))}
-                {'☆'.repeat(5 - Math.round(shop.averageRating))}
-                <span className="ml-1 text-zinc-400">{shop.averageRating.toFixed(1)}</span>
-              </div>
+              
+              {!shop.isExternal ? (
+                <div className="text-xs mt-1">
+                  {'★'.repeat(Math.round(shop.averageRating))}
+                  {'☆'.repeat(5 - Math.round(shop.averageRating))}
+                  <span className="ml-1 text-zinc-400">{shop.averageRating.toFixed(1)}</span>
+                </div>
+              ) : (
+                <div className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider font-semibold">
+                  Unclaimed OSM Place
+                </div>
+              )}
+              
               <button
                 onClick={() => onShopClick(shop)}
                 className="mt-2 text-xs text-chai-400 font-medium hover:underline"

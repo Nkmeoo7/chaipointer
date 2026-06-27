@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Shop } from '../types';
-import { getShops, getDirections } from '../api';
+import { getShops, getDirections, fetchOSMShops, createShop } from '../api';
 import { useGeolocation } from '../hooks/useGeolocation';
 import MapView from '../components/Map/MapView';
 import ShopDetail from '../components/Shops/ShopDetail';
@@ -38,18 +38,41 @@ export default function Home() {
       if (name) params.name = name;
       if (rating && rating > 0) params.minRating = rating;
       
+      let fetchLat: number | undefined;
+      let fetchLng: number | undefined;
+      
       if (nearby && position) {
         params.lat = position.latitude;
         params.lng = position.longitude;
         params.radius = 5000; // 5 km
+        fetchLat = position.latitude;
+        fetchLng = position.longitude;
       } else if (customLat && customLng) {
         params.lat = customLat;
         params.lng = customLng;
         params.radius = 10000; // 10 km for custom searches
+        fetchLat = customLat;
+        fetchLng = customLng;
       }
       
       const res = await getShops(params);
-      setShops(res.data.shops);
+      let dbShops = res.data.shops as Shop[];
+
+      // Fetch external shops if we have coordinates
+      if (fetchLat && fetchLng) {
+        const osmShops = await fetchOSMShops(fetchLat, fetchLng, params.radius as number);
+        // Deduplicate: naive check by exact lat/lng or name
+        // (In a real app you'd do geospatial bounding box deduplication)
+        const filteredOsm = osmShops.filter(osm => 
+          !dbShops.some(db => 
+            db.name.toLowerCase() === osm.name.toLowerCase() || 
+            (db.location.coordinates[0] === osm.location.coordinates[0] && db.location.coordinates[1] === osm.location.coordinates[1])
+          )
+        );
+        dbShops = [...dbShops, ...filteredOsm];
+      }
+
+      setShops(dbShops);
     } catch {
       // silent
     }
@@ -103,6 +126,21 @@ export default function Home() {
   const handleShopAdded = (shop: Shop) => {
     setShops(prev => [shop, ...prev]);
   };
+
+  const handleShopClaimed = useCallback(async (osmShop: Shop) => {
+    try {
+      const res = await createShop({
+        name: osmShop.name,
+        address: osmShop.address,
+        description: osmShop.description,
+      });
+      const dbShop = res.data.shop;
+      setShops(prev => prev.map(s => s._id === osmShop._id ? dbShop : s));
+      setSelectedShop(dbShop);
+    } catch (err) {
+      alert('Failed to claim shop. Please try again.');
+    }
+  }, []);
 
   // ── Directions ───────────────────────────────────────────────────────────
   const handleDirections = useCallback(async (
@@ -159,6 +197,7 @@ export default function Home() {
           onSearch={handleSearch}
           onLocationSearch={handleLocationSearch}
           searchLocationName={searchLocationName}
+          onSearchLocationNameChange={setSearchLocationName}
           onClearLocationSearch={handleClearLocationSearch}
           onMinRatingChange={handleMinRating}
           onNearMe={handleNearMe}
@@ -215,6 +254,7 @@ export default function Home() {
                 onClose={handleShopClose}
                 onDirections={handleDirections}
                 userPosition={userPosition}
+                onClaimShop={handleShopClaimed}
               />
             </div>
           )}
