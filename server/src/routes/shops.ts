@@ -1,0 +1,115 @@
+import { Router, Request, Response } from 'express';
+import { Shop } from '../models/Shop';
+import { geocodeAddress, getDirections } from '../services/mapbox';
+import { protect, AuthRequest } from '../middleware/auth';
+
+const router = Router();
+
+// GET /api/shops — list all shops, with optional search/filter
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, minRating } = req.query;
+
+    const query: Record<string, unknown> = {};
+    if (name) {
+      query.name = { $regex: name as string, $options: 'i' };
+    }
+    if (minRating) {
+      const rating = parseFloat(minRating as string);
+      if (!isNaN(rating)) {
+        query.averageRating = { $gte: rating };
+      }
+    }
+
+    const shops = await Shop.find(query).select('-__v').sort({ createdAt: -1 });
+    res.json({ shops });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch shops.' });
+  }
+});
+
+// POST /api/shops — create a new shop (geocodes address server-side)
+router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { name, address, description, photoUrl } = req.body;
+
+    if (!name || !address) {
+      res.status(400).json({ message: 'Name and address are required.' });
+      return;
+    }
+
+    // Geocoding happens server-side; the Mapbox token is never sent to the client
+    const [lng, lat] = await geocodeAddress(address);
+
+    const shop = await Shop.create({
+      name,
+      address,
+      description: description || '',
+      photoUrl,
+      location: { type: 'Point', coordinates: [lng, lat] },
+      createdBy: req.userId,
+    });
+
+    res.status(201).json({ shop });
+  } catch (err: unknown) {
+    const error = err as { status?: number; message?: string };
+    const status = error.status ?? 500;
+    res.status(status).json({ message: error.message || 'Failed to create shop.' });
+  }
+});
+
+// GET /api/shops/:id — get single shop
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const shop = await Shop.findById(req.params.id).select('-__v');
+    if (!shop) {
+      res.status(404).json({ message: 'Shop not found.' });
+      return;
+    }
+    res.json({ shop });
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch shop.' });
+  }
+});
+
+// GET /api/shops/:id/directions — proxy Directions API (keeps token server-side)
+router.get('/:id/directions', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { startLng, startLat, startAddress } = req.query;
+
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) {
+      res.status(404).json({ message: 'Shop not found.' });
+      return;
+    }
+
+    let startCoords: [number, number];
+
+    if (startLng && startLat) {
+      // Browser geolocation provided coordinates
+      startCoords = [parseFloat(startLng as string), parseFloat(startLat as string)];
+    } else if (startAddress) {
+      // Manual address fallback: geocode the start address too
+      startCoords = await geocodeAddress(startAddress as string);
+    } else {
+      res
+        .status(400)
+        .json({ message: 'Provide either startLng+startLat or startAddress.' });
+      return;
+    }
+
+    const endCoords: [number, number] = [
+      shop.location.coordinates[0],
+      shop.location.coordinates[1],
+    ];
+
+    const geometry = await getDirections(startCoords, endCoords);
+    res.json({ geometry, shopName: shop.name });
+  } catch (err: unknown) {
+    const error = err as { status?: number; message?: string };
+    const status = error.status ?? 500;
+    res.status(status).json({ message: error.message || 'Failed to get directions.' });
+  }
+});
+
+export default router;
