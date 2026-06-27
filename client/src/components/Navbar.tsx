@@ -22,7 +22,7 @@ export default function Navbar({ onAddShop, onSearch, onMinRatingChange }: Navba
   return (
     <>
       <motion.nav
-        className="absolute top-0 left-0 right-0 z-30 flex items-center gap-3 px-4 py-3"
+        className="relative flex items-center gap-3 px-4 py-3"
         style={{ background: 'linear-gradient(to bottom, rgba(12,10,9,0.95) 0%, transparent 100%)' }}
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -82,6 +82,7 @@ export default function Navbar({ onAddShop, onSearch, onMinRatingChange }: Navba
         </div>
       </motion.nav>
 
+      {/* RedeemModal renders as fixed so it's always above everything */}
       <AnimatePresence>
         {showRedeem && <RedeemModal onClose={() => setShowRedeem(false)} />}
       </AnimatePresence>

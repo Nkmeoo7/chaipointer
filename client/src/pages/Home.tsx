@@ -79,42 +79,52 @@ export default function Home() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-zinc-950">
-      <Navbar
-        onAddShop={() => setShowAddShop(true)}
-        onSearch={handleSearch}
-        onMinRatingChange={handleMinRating}
-      />
 
-      {/* Full-screen Leaflet map */}
-      <MapView
-        shops={shops}
-        onShopClick={setSelectedShop}
-        selectedShop={selectedShop}
-        routeCoords={routeCoords}
-        onDrawRoute={() => {}} // no-op in Leaflet version (state-driven)
-      />
+      {/* ── Base layer: full-screen map ──────────────────────────────
+          Positioned absolutely at z-0 so Leaflet's internal pane
+          z-indices (200–1000) don't escape this stacking context.     */}
+      <div className="absolute inset-0 z-0">
+        <MapView
+          shops={shops}
+          onShopClick={setSelectedShop}
+          selectedShop={selectedShop}
+          routeCoords={routeCoords}
+          onDrawRoute={() => {}}
+        />
+      </div>
+
+      {/* ── UI layers (must be z-[1001]+ to clear Leaflet controls) ── */}
+
+      {/* Navbar */}
+      <div className="absolute inset-x-0 top-0 z-[1001]">
+        <Navbar
+          onAddShop={() => setShowAddShop(true)}
+          onSearch={handleSearch}
+          onMinRatingChange={handleMinRating}
+        />
+      </div>
 
       {/* Route loading / error toast */}
       {routeLoading && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 glass-card px-4 py-2 text-sm text-chai-300 flex items-center gap-2 z-30">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 glass-card px-4 py-2 text-sm text-chai-300 flex items-center gap-2 z-[1002]">
           <div className="w-4 h-4 border-2 border-chai-400 border-t-transparent rounded-full animate-spin" />
           Getting directions…
         </div>
       )}
       {routeError && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 glass-card px-4 py-2 text-sm text-red-400 max-w-xs text-center z-30">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 glass-card px-4 py-2 text-sm text-red-400 max-w-xs text-center z-[1002]">
           {routeError}
           <button onClick={() => setRouteError(null)} className="ml-2 text-zinc-500 hover:text-white">×</button>
         </div>
       )}
 
       {/* Shop count badge */}
-      <div className="absolute bottom-4 left-4 glass-card px-3 py-1.5 text-xs text-zinc-400 z-20">
+      <div className="absolute bottom-4 left-4 glass-card px-3 py-1.5 text-xs text-zinc-400 z-[1001]">
         {shops.length} shop{shops.length !== 1 ? 's' : ''} on map
       </div>
 
       {/* Shop detail panel */}
-      <div className="absolute top-0 right-0 h-full w-full max-w-sm pointer-events-none z-20">
+      <div className="absolute top-0 right-0 h-full w-full max-w-sm pointer-events-none z-[1001]">
         <AnimatePresence>
           {selectedShop && (
             <div className="pointer-events-auto h-full">
@@ -128,7 +138,7 @@ export default function Home() {
         </AnimatePresence>
       </div>
 
-      {/* Add shop modal */}
+      {/* Add shop modal — fixed overlay, highest layer */}
       <AnimatePresence>
         {showAddShop && (
           <AddShopModal
