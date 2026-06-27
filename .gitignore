@@ -1,0 +1,41 @@
+# Dependency directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build and environment files
+.env
+.env.local
+.env.*.local
+client/.env
+server/.env
+dist/
+client/dist/
+server/dist/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite / bundler caches
+.vite/
+.turbo/
+.cache/
