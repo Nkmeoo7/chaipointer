@@ -74,8 +74,13 @@ export const fetchOSMShops = async (lat: number, lng: number, radius = 3000): Pr
 out center;`;
 
   try {
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-    const res = await fetch(url);
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `data=${encodeURIComponent(query)}`
+    });
     if (!res.ok) throw new Error(`Overpass API returned ${res.status}`);
     const data = await res.json();
     
