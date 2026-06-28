@@ -43,25 +43,32 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 
-// POST /api/shops — create a new shop (geocodes address server-side)
+// POST /api/shops — create a new shop (geocodes address server-side if coordinates not provided)
 router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, address, description, photoUrl } = req.body;
+    const { name, address, description, photoUrl, lat, lng } = req.body;
 
     if (!name || !address) {
       res.status(400).json({ message: 'Name and address are required.' });
       return;
     }
 
-    // Geocoding happens server-side; the Mapbox token is never sent to the client
-    const [lng, lat] = await geocodeAddress(address);
+    let finalLng = lng;
+    let finalLat = lat;
+
+    if (finalLng === undefined || finalLat === undefined) {
+      // Geocoding happens server-side; the Mapbox token is never sent to the client
+      const coords = await geocodeAddress(address);
+      finalLng = coords[0];
+      finalLat = coords[1];
+    }
 
     const shop = await Shop.create({
       name,
       address,
       description: description || '',
       photoUrl,
-      location: { type: 'Point', coordinates: [lng, lat] },
+      location: { type: 'Point', coordinates: [finalLng, finalLat] },
       createdBy: req.userId,
     });
 

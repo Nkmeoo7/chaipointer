@@ -31,6 +31,8 @@ export const createShop = (data: {
   address: string;
   description: string;
   photoUrl?: string;
+  lat?: number;
+  lng?: number;
 }) => api.post('/shops', data);
 
 export const getDirections = (

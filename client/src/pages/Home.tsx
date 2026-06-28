@@ -173,6 +173,8 @@ export default function Home() {
         name: osmShop.name,
         address: osmShop.address,
         description: osmShop.description,
+        lng: osmShop.location.coordinates[0],
+        lat: osmShop.location.coordinates[1],
       });
       const dbShop = res.data.shop;
       setShops(prev => prev.map(s => s._id === osmShop._id ? dbShop : s));
