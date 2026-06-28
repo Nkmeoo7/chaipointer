@@ -74,12 +74,13 @@ export const fetchOSMShops = async (lat: number, lng: number, radius = 3000): Pr
 out center;`;
 
   try {
-    const res = await axios.get('https://overpass-api.de/api/interpreter', {
-      params: { data: query }
-    });
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Overpass API returned ${res.status}`);
+    const data = await res.json();
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (res.data.elements || []).slice(0, 30).map((el: any) => ({
+    return (data.elements || []).slice(0, 30).map((el: any) => ({
       _id: `osm-${el.id}`,
       name: el.tags?.name || 'Unnamed Cafe/Tea Stall',
       address: [
