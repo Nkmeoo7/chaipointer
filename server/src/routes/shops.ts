@@ -90,6 +90,7 @@ router.post('/osm', async (req: Request, res: Response): Promise<void> => {
       {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'ChaiSpotApp/1.0 (Contact: your-email@example.com)'
         },
       }
     );
