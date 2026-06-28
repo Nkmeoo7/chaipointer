@@ -35,13 +35,17 @@ export const createShop = (data: {
 
 export const getDirections = (
   shopId: string,
-  start: { lng?: number; lat?: number; address?: string }
-) =>
-  api.get(`/shops/${shopId}/directions`, {
-    params: start.address
-      ? { startAddress: start.address }
-      : { startLng: start.lng, startLat: start.lat },
-  });
+  start: { lng?: number; lat?: number; address?: string },
+  end?: { lng: number; lat: number }
+) => api.get(`/shops/${shopId}/directions`, { 
+  params: { 
+    startLng: start.lng, 
+    startLat: start.lat, 
+    startAddress: start.address, 
+    endLng: end?.lng, 
+    endLat: end?.lat 
+  } 
+});
 
 // Reviews
 export const getReviews = (shopId: string) =>

@@ -89,12 +89,29 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 // GET /api/shops/:id/directions — proxy Directions API (keeps token server-side)
 router.get('/:id/directions', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { startLng, startLat, startAddress } = req.query;
+    const shopId = req.params.id;
+    const { startLng, startLat, startAddress, endLng, endLat } = req.query;
 
-    const shop = await Shop.findById(req.params.id);
-    if (!shop) {
-      res.status(404).json({ message: 'Shop not found.' });
-      return;
+    let endCoords: [number, number];
+    let shopName = 'Destination';
+
+    if (shopId.startsWith('osm-')) {
+      if (!endLng || !endLat) {
+        res.status(400).json({ message: 'External OSM shops require endLng and endLat in query.' });
+        return;
+      }
+      endCoords = [parseFloat(endLng as string), parseFloat(endLat as string)];
+    } else {
+      const shop = await Shop.findById(shopId);
+      if (!shop) {
+        res.status(404).json({ message: 'Shop not found.' });
+        return;
+      }
+      endCoords = [
+        shop.location.coordinates[0],
+        shop.location.coordinates[1],
+      ];
+      shopName = shop.name;
     }
 
     let startCoords: [number, number];
@@ -112,13 +129,8 @@ router.get('/:id/directions', async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const endCoords: [number, number] = [
-      shop.location.coordinates[0],
-      shop.location.coordinates[1],
-    ];
-
     const geometry = await getDirections(startCoords, endCoords);
-    res.json({ geometry, shopName: shop.name });
+    res.json({ geometry, shopName });
   } catch (err: unknown) {
     const error = err as { status?: number; message?: string };
     const status = error.status ?? 500;

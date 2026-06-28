@@ -191,7 +191,16 @@ export default function Home() {
     setRouteError(null);
     setRouteCoords(null);
     try {
-      const res = await getDirections(shopId, start);
+      // Find the shop to get its coordinates (crucial for external OSM shops)
+      let endCoords: { lng: number; lat: number } | undefined;
+      if (selectedShop && selectedShop._id === shopId) {
+        endCoords = {
+          lng: selectedShop.location.coordinates[0],
+          lat: selectedShop.location.coordinates[1]
+        };
+      }
+      
+      const res = await getDirections(shopId, start, endCoords);
       // OSRM GeoJSON: [lng, lat] → Leaflet Polyline: [lat, lng]
       const geoCoords: [number, number][] = res.data.geometry.coordinates.map(
         ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
@@ -203,7 +212,7 @@ export default function Home() {
     } finally {
       setRouteLoading(false);
     }
-  }, []);
+  }, [selectedShop]);
 
   const handleShopClose = () => {
     setSelectedShop(null);
