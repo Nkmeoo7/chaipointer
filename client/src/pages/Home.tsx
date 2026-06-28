@@ -55,8 +55,13 @@ export default function Home() {
         fetchLng = customLng;
       }
       
-      const res = await getShops(params);
-      let dbShops = res.data.shops as Shop[];
+      let dbShops: Shop[] = [];
+      try {
+        const res = await getShops(params);
+        dbShops = res.data.shops as Shop[];
+      } catch (err) {
+        console.warn('Failed to fetch from DB, falling back to OSM only', err);
+      }
 
       // Fetch external shops if we have coordinates
       if (fetchLat && fetchLng) {
