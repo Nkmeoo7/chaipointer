@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Shop } from '../types';
 import { getShops, getDirections, fetchOSMShops, createShop } from '../api';
@@ -22,6 +22,10 @@ export default function Home() {
 
   const [searchLocationName, setSearchLocationName] = useState('');
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Dynamic OSM loading refs
+  const osmFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchedCenter = useRef<{lat: number, lng: number} | null>(null);
 
   // ── Shop fetching ────────────────────────────────────────────────────────
   const fetchShops = useCallback(async (opts?: {
@@ -128,6 +132,37 @@ export default function Home() {
     fetchShops({ name: searchQuery, rating: minRating });
   }, [fetchShops, searchQuery, minRating]);
 
+  // ── Dynamic Map Panning ──────────────────────────────────────────────────
+  const handleMapMove = useCallback((lat: number, lng: number, radius: number) => {
+    // Avoid re-fetching if we barely moved (roughly 0.01 deg is ~1km)
+    if (lastFetchedCenter.current) {
+      const dLat = Math.abs(lastFetchedCenter.current.lat - lat);
+      const dLng = Math.abs(lastFetchedCenter.current.lng - lng);
+      if (dLat < 0.01 && dLng < 0.01) return;
+    }
+
+    if (osmFetchTimer.current) clearTimeout(osmFetchTimer.current);
+    
+    osmFetchTimer.current = setTimeout(async () => {
+      lastFetchedCenter.current = { lat, lng };
+      try {
+        const newOsmShops = await fetchOSMShops(lat, lng, radius);
+        setShops(prevShops => {
+          const newUnique = newOsmShops.filter(osm => 
+            !prevShops.some(s => 
+              s.name.toLowerCase() === osm.name.toLowerCase() || 
+              (s.location.coordinates[0] === osm.location.coordinates[0] && s.location.coordinates[1] === osm.location.coordinates[1])
+            )
+          );
+          if (newUnique.length === 0) return prevShops;
+          return [...prevShops, ...newUnique];
+        });
+      } catch (err) {
+        console.warn('Failed dynamic OSM fetch', err);
+      }
+    }, 1000); // 1 second debounce
+  }, []);
+
   const handleShopAdded = (shop: Shop) => {
     setShops(prev => [shop, ...prev]);
   };
@@ -189,6 +224,7 @@ export default function Home() {
           routeCoords={routeCoords}
           userPosition={userPosition}
           mapCenter={mapCenter}
+          onMapMove={handleMapMove}
           onDrawRoute={() => {}}
         />
       </div>

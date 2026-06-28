@@ -61,6 +61,7 @@ export interface MapViewProps {
   routeCoords: [number, number][] | null;
   userPosition: GeolocationCoordinates | null;
   mapCenter?: { lat: number; lng: number } | null;
+  onMapMove?: (lat: number, lng: number, radius: number) => void;
   onDrawRoute: (
     fn: (shopId: string, start: { lng?: number; lat?: number; address?: string }) => void
   ) => void;
@@ -72,6 +73,7 @@ function MapController({
   routeCoords,
   userPosition,
   mapCenter,
+  onMapMove,
   hasFlownToUser,
   onFlownToUser,
 }: {
@@ -79,6 +81,7 @@ function MapController({
   routeCoords: [number, number][] | null;
   userPosition: GeolocationCoordinates | null;
   mapCenter?: { lat: number; lng: number } | null;
+  onMapMove?: (lat: number, lng: number, radius: number) => void;
   hasFlownToUser: React.MutableRefObject<boolean>;
   onFlownToUser: () => void;
 }) {
@@ -112,6 +115,31 @@ function MapController({
     map.flyTo([mapCenter.lat, mapCenter.lng], 13, { duration: 1.5 });
   }, [mapCenter, map]);
 
+  // Handle dynamic panning/zooming to fetch shops in the current view
+  useEffect(() => {
+    if (!onMapMove) return;
+    
+    const handleMoveEnd = () => {
+      // Only fetch if zoomed in close enough (e.g. city/neighborhood level)
+      // This prevents trying to download the entire country's cafes at once.
+      if (map.getZoom() >= 13) {
+        const center = map.getCenter();
+        const bounds = map.getBounds();
+        // Calculate radius in meters from center to the top-right corner
+        const radius = Math.round(center.distanceTo(bounds.getNorthEast()));
+        onMapMove(center.lat, center.lng, radius);
+      }
+    };
+
+    // Fire immediately on mount if already zoomed in (e.g., after initial default load)
+    handleMoveEnd();
+
+    map.on('moveend', handleMoveEnd);
+    return () => {
+      map.off('moveend', handleMoveEnd);
+    };
+  }, [map, onMapMove]);
+
   return null;
 }
 
@@ -122,6 +150,7 @@ export default function MapView({
   routeCoords,
   userPosition,
   mapCenter,
+  onMapMove,
 }: MapViewProps) {
   const initialCenter: [number, number] = [28.6139, 77.209]; // New Delhi fallback
   // Track whether we've already flown to the user once
@@ -146,6 +175,7 @@ export default function MapView({
         routeCoords={routeCoords}
         userPosition={userPosition}
         mapCenter={mapCenter}
+        onMapMove={onMapMove}
         hasFlownToUser={hasFlownToUser}
         onFlownToUser={() => { hasFlownToUser.current = true; }}
       />
