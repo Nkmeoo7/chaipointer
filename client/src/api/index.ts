@@ -69,15 +69,9 @@ export const fetchOSMShops = async (lat: number, lng: number, radius = 3000): Pr
 out center;`;
 
   try {
-    const res = await axios.post(
-      'https://overpass-api.de/api/interpreter',
-      `data=${encodeURIComponent(query)}`,
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
+    const res = await axios.get('https://overpass-api.de/api/interpreter', {
+      params: { data: query }
+    });
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (res.data.elements || []).slice(0, 30).map((el: any) => ({
