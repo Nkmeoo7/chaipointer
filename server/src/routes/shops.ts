@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Shop } from '../models/Shop';
 import { geocodeAddress, getDirections } from '../services/mapbox';
+import axios from 'axios';
 import { protect, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -69,6 +70,35 @@ router.post('/', protect, async (req: AuthRequest, res: Response): Promise<void>
     const error = err as { status?: number; message?: string };
     const status = error.status ?? 500;
     res.status(status).json({ message: error.message || 'Failed to create shop.' });
+  }
+});
+
+// POST /api/shops/osm — Proxy for Overpass API to bypass adblockers
+router.post('/osm', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { lat, lng, radius } = req.body;
+    if (!lat || !lng || !radius) {
+      res.status(400).json({ message: 'lat, lng, and radius are required.' });
+      return;
+    }
+    
+    const query = `[out:json][timeout:10];(node["amenity"="cafe"](around:${radius},${lat},${lng});node["vending"="coffee"](around:${radius},${lat},${lng}););out center;`;
+    
+    const response = await axios.post(
+      'https://overpass-api.de/api/interpreter',
+      `data=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    
+    res.json({ elements: response.data.elements || [] });
+  } catch (err: unknown) {
+    const error = err as { response?: { status?: number; data?: string }; message?: string };
+    console.error('OSM Proxy Error:', error.message);
+    res.status(error.response?.status || 500).json({ message: 'Failed to fetch from OSM API' });
   }
 });
 

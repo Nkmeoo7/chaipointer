@@ -65,27 +65,13 @@ export const redeemPoints = () => api.post('/points/redeem');
 import { Shop } from '../types';
 
 export const fetchOSMShops = async (lat: number, lng: number, radius = 3000): Promise<Shop[]> => {
-  console.log(`[ChaiSpot] Fetching external OSM shops... lat=${lat}, lng=${lng}, radius=${radius}`);
-  const query = `[out:json][timeout:10];
-(
-  node["amenity"="cafe"](around:${radius},${lat},${lng});
-  node["vending"="coffee"](around:${radius},${lat},${lng});
-);
-out center;`;
-
+  console.log(`[ChaiSpot] Fetching external OSM shops via proxy... lat=${lat}, lng=${lng}, radius=${radius}`);
   try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `data=${encodeURIComponent(query)}`
-    });
-    if (!res.ok) throw new Error(`Overpass API returned ${res.status}`);
-    const data = await res.json();
+    const res = await api.post('/shops/osm', { lat, lng, radius });
+    const elements = res.data.elements || [];
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (data.elements || []).slice(0, 30).map((el: any) => ({
+    return elements.slice(0, 30).map((el: any) => ({
       _id: `osm-${el.id}`,
       name: el.tags?.name || 'Unnamed Cafe/Tea Stall',
       address: [
