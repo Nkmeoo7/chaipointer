@@ -84,3 +84,79 @@ Updated the `package.json` start command to specifically target `node dist/src/i
 
 **Alternative for the Future:** 
 Use a modern bundler like **esbuild** or **tsup** for the backend. This would compile the entire Express application into a single, flat `dist/index.js` file, resulting in faster cold starts and simpler deployment scripts.
+
+---
+
+## 6. Full System Architecture & User Flow
+
+To help visualize the system, here is the complete architecture diagram (rendered via Mermaid) and the step-by-step user journey.
+
+### Architecture Diagram (Mermaid)
+
+```mermaid
+flowchart TD
+    USER["User / Browser"] --> REACT
+
+    subgraph Frontend["Frontend (React)"]
+        REACT["React App (Vite + TS)"]
+        JWT["JWT Cookie"]
+        REACT <--> JWT
+        
+        REACT --> LOGIN["Login / Signup Page"]
+        REACT --> HOME["Home Page"]
+        HOME --> NAVBAR["Navbar"]
+        HOME --> MAPVIEW["MapView (React-Leaflet)"]
+        HOME --> SHOPDETAIL["ShopDetail Panel"]
+    end
+
+    subgraph API_Layer["State & API Layer"]
+        USEAUTH["useAuth Hook"]
+        USEGEO["useGeolocation Hook"]
+        AXIOS["Axios API Client"]
+    end
+
+    Frontend --> API_Layer
+
+    subgraph External_APIs["External APIs (Free)"]
+        NOM["Nominatim API (Geocoding)"]
+        OVER["Overpass API (OSM Discovery)"]
+        OSRM["OSRM API (Directions)"]
+        OSMTILES["OpenStreetMap Tiles"]
+    end
+
+    subgraph Backend_Server["Backend Server (Node.js)"]
+        JWTMID["JWT Auth Middleware"]
+        AUTH["POST /api/auth"]
+        SHOPS["GET/POST /api/shops"]
+        REVIEWS["GET/POST /api/reviews"]
+        POINTS["GET/POST /api/points"]
+        
+        JWTMID --> AUTH
+        JWTMID --> SHOPS
+        JWTMID --> REVIEWS
+        JWTMID --> POINTS
+    end
+
+    AXIOS --> External_APIs
+    AXIOS --> Backend_Server
+
+    subgraph Database["MongoDB Atlas"]
+        USERS["Users Collection"]
+        SHOPSCOL["Shops Collection"]
+        REVIEWSCOL["Reviews Collection"]
+        TXNS["Transactions Collection"]
+    end
+
+    AUTH --> USERS
+    SHOPS --> SHOPSCOL
+    REVIEWS --> REVIEWSCOL
+    POINTS --> TXNS
+```
+
+### User Flow Breakdown
+
+1. **Authentication:** Users land on the app and are redirected to `/login` if unauthenticated. Once logged in, a JWT session is established via HTTP-only cookies.
+2. **Map Discovery:** The `Home` page loads a fullscreen Leaflet map. It fetches user GPS coordinates and loads known shops from MongoDB. 
+3. **Cold Start Mitigation:** As the map is panned, the app dynamically queries the external **Overpass API** to discover real-world cafes from OpenStreetMap and displays them as "unclaimed" markers.
+4. **Interaction:** Clicking an unclaimed shop allows the user to "Claim" it, saving it to MongoDB. Users can then leave 1-5 star reviews, earning points for their contribution.
+5. **Navigation:** Clicking "Get Directions" uses the **OSRM API** to draw a polyline route directly on the map from the user's location to the chai shop.
