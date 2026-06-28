@@ -65,6 +65,7 @@ export const redeemPoints = () => api.post('/points/redeem');
 import { Shop } from '../types';
 
 export const fetchOSMShops = async (lat: number, lng: number, radius = 3000): Promise<Shop[]> => {
+  console.log(`[ChaiSpot] Fetching external OSM shops... lat=${lat}, lng=${lng}, radius=${radius}`);
   const query = `[out:json][timeout:10];
 (
   node["amenity"="cafe"](around:${radius},${lat},${lng});

@@ -123,18 +123,20 @@ function MapController({
       // Only fetch if zoomed in close enough (e.g. city/neighborhood level)
       // This prevents trying to download the entire country's cafes at once.
       if (map.getZoom() >= 13) {
-        const center = map.getCenter();
         const bounds = map.getBounds();
+        const center = map.getCenter();
+        
         // Calculate radius in meters from center to the top-right corner
         const radius = Math.round(center.distanceTo(bounds.getNorthEast()));
         onMapMove(center.lat, center.lng, radius);
       }
     };
 
-    // Fire immediately on mount if already zoomed in (e.g., after initial default load)
+    map.on('moveend', handleMoveEnd);
+    
+    // Trigger an initial fetch immediately on mount if zoomed in enough
     handleMoveEnd();
 
-    map.on('moveend', handleMoveEnd);
     return () => {
       map.off('moveend', handleMoveEnd);
     };
